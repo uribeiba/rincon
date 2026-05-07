@@ -1,0 +1,650 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>📊 Dashboard Financiero</h2>
+
+<!-- ⭐ SCORE DEL NEGOCIO -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card p-4 text-center shadow">
+
+            <h4>📊 Score del Negocio</h4>
+
+            <h1 style="font-size: 60px;">
+                {{ score }} / 100
+            </h1>
+
+            <h5>
+                Estado: 
+                {% if nivel == "Excelente" %}
+                    <span class="text-success fw-bold">{{ nivel }}</span>
+                {% elif nivel == "Bueno" %}
+                    <span class="text-primary fw-bold">{{ nivel }}</span>
+                {% elif nivel == "Regular" %}
+                    <span class="text-warning fw-bold">{{ nivel }}</span>
+                {% else %}
+                    <span class="text-danger fw-bold">{{ nivel }}</span>
+                {% endif %}
+            </h5>
+
+        </div>
+    </div>
+</div>
+
+<!-- FILTRO -->
+<form method="get" class="row mb-4">
+
+    <div class="col-md-3">
+        <label>Desde</label>
+        <input type="date" name="fecha_inicio" class="form-control" value="{{fecha_inicio}}">
+    </div>
+
+    <div class="col-md-3">
+        <label>Hasta</label>
+        <input type="date" name="fecha_fin" class="form-control" value="{{fecha_fin}}">
+    </div>
+
+    <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-dark w-100">Filtrar</button>
+    </div>
+
+</form>
+
+<!-- TARJETAS -->
+<div class="row">
+
+    <div class="col-md-3">
+        <div class="card p-3">
+            <h6>Ventas</h6>
+            <h3>${{ ventas }}</h3>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card p-3">
+            <h6>Compras</h6>
+            <h3>${{ compras }}</h3>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card p-3">
+            <h6>Gastos</h6>
+            <h3>${{ gastos }}</h3>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card p-3 bg-success text-white">
+            <h6>Utilidad</h6>
+            <h3>${{ utilidad }}</h3>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- GRÁFICOS EXISTENTES -->
+<div class="row mt-5">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Ventas por día</h5>
+            <canvas id="ventasChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>Gastos por día</h5>
+            <canvas id="gastosChart"></canvas>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>Compras por día</h5>
+            <canvas id="comprasChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>Gastos Fijos vs Variables</h5>
+            <canvas id="gastosPie"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Utilidad por día</h5>
+            <canvas id="utilidadChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 🥩 RENTABILIDAD -->
+<div class="row mt-5">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>🥩 Rentabilidad por Producto</h5>
+
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Venta</th>
+                        <th>Costo</th>
+                        <th>Utilidad</th>
+                        <th>Margen %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rentabilidad %}
+                    <tr>
+                        <td>{{ r.producto }}</td>
+                        <td>{{ r.cantidad }}</td>
+                        <td>${{ r.venta }}</td>
+                        <td>${{ r.costo }}</td>
+                        <td>
+                            {% if r.utilidad > 0 %}
+                                <span class="text-success">${{ r.utilidad }}</span>
+                            {% else %}
+                                <span class="text-danger">${{ r.utilidad }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.margen }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- 📊 COSTEO POR PRODUCTO (con gastos fijos y variables) -->
+<!-- 🔥 REEMPLAZA COMPLETO ESTE BLOQUE -->
+
+<!-- 📊 COSTEO POR PRODUCTO -->
+<div class="row mt-5">
+    <div class="col-md-12">
+
+        <div class="card p-3 shadow-sm">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+
+                <h5 class="mb-0">
+                    💰 Pricing Inteligente por Producto
+                </h5>
+
+                <span class="badge bg-dark fs-6">
+                    Motor Financiero Activo
+                </span>
+
+            </div>
+
+            <div class="table-responsive">
+
+                <table class="table table-bordered table-hover table-sm align-middle">
+
+                    <thead class="table-dark">
+
+                        <tr>
+
+                            <th>Producto</th>
+
+                            <th>Costo Compra</th>
+
+                            <th>GF</th>
+
+                            <th>GV</th>
+
+                            <th>Costo Real</th>
+
+                            <th>IVA</th>
+
+                            <th>Costo + IVA</th>
+
+                            <th class="bg-success text-white">
+                                Precio Sugerido
+                            </th>
+
+                            <th>Ganancia $</th>
+
+                            <th>% Margen</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for p in costeo_productos %}
+
+                        <tr>
+
+                            <td>
+                                <strong>{{ p.nombre }}</strong>
+                            </td>
+
+                            <td>
+                                ${{ p.costo_kg }}
+                            </td>
+
+                            <td>
+                                ${{ p.gastos_fijos_kg }}
+                            </td>
+
+                            <td>
+                                ${{ p.gastos_variables_kg }}
+                            </td>
+
+                            <td>
+                                ${{ p.costo_real_kg }}
+                            </td>
+
+                            <td>
+                                {{ p.iva_porcentaje }}%
+                                <br>
+                                <small class="text-muted">
+                                    ${{ p.iva_monto }}
+                                </small>
+                            </td>
+
+                            <td>
+                                <strong>
+                                    ${{ p.costo_con_iva }}
+                                </strong>
+                            </td>
+
+                            <!-- 🔥 PRECIO SUGERIDO -->
+                            <td class="bg-light">
+
+                                <strong class="text-success fs-6">
+                                    ${{ p.precio_sugerido }}
+                                </strong>
+
+                            </td>
+
+                            <!-- 🔥 GANANCIA -->
+                            <td>
+
+                                {% if p.ganancia_pesos > 0 %}
+
+                                    <span class="text-success fw-bold">
+                                        ${{ p.ganancia_pesos }}
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="text-danger fw-bold">
+                                        ${{ p.ganancia_pesos }}
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <!-- 🔥 MARGEN -->
+                            <td>
+
+                                {% if p.ganancia_porcentaje >= 25 %}
+
+                                    <span class="badge bg-success">
+                                        {{ p.ganancia_porcentaje }}%
+                                    </span>
+
+                                {% elif p.ganancia_porcentaje >= 15 %}
+
+                                    <span class="badge bg-warning text-dark">
+                                        {{ p.ganancia_porcentaje }}%
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge bg-danger">
+                                        {{ p.ganancia_porcentaje }}%
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td colspan="10" class="text-center">
+                                No existen productos registrados.
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+
+<!-- 🔥 NUEVA SECCIÓN -->
+<!-- 🏆 TOP PROVEEDORES -->
+<div class="row mt-5">
+
+    <div class="col-md-6">
+
+        <div class="card p-3 shadow-sm">
+
+            <h5>
+                🏆 Top Proveedores
+            </h5>
+
+            <table class="table table-bordered table-sm mt-3">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th>Proveedor</th>
+
+                        <th>Total Compras</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for p in top_proveedores %}
+
+                    <tr>
+
+                        <td>
+                            {{ p.proveedor__nombre }}
+                        </td>
+
+                        <td>
+
+                            <strong>
+                                ${{ p.total_compras }}
+                            </strong>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="2">
+                            No hay compras registradas.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- 🔥 TOP PRODUCTOS RENTABLES -->
+    <div class="col-md-6">
+
+        <div class="card p-3 shadow-sm">
+
+            <h5>
+                🔥 Productos Más Rentables
+            </h5>
+
+            <table class="table table-bordered table-sm mt-3">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th>Producto</th>
+
+                        <th>Margen</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for p in rentabilidad %}
+
+                    <tr>
+
+                        <td>
+                            {{ p.producto }}
+                        </td>
+
+                        <td>
+
+                            {% if p.margen > 25 %}
+
+                                <span class="badge bg-success">
+                                    {{ p.margen }}%
+                                </span>
+
+                            {% elif p.margen > 10 %}
+
+                                <span class="badge bg-warning text-dark">
+                                    {{ p.margen }}%
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-danger">
+                                    {{ p.margen }}%
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Tabla de Costeo Real por Producto (Carnicería) -->
+<div class="row mt-5">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>💰 Costeo Real por Producto (kg)</h5>
+            <table class="table table-bordered table-sm">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Kg vendidos</th>
+                        <th>Costo kg</th>
+                        <th>Gasto Var/kg</th>
+                        <th>Costo Real kg</th>
+                        <th>IVA kg</th>
+                        <th>Costo + IVA kg</th>
+                        <th>Precio kg</th>
+                        <th>Ganancia kg</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in costeo %}
+                    <tr>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.kg_vendidos }}</td>
+                        <td>${{ p.costo_kg }}</td>
+                        <td>${{ p.gasto_var_kg }}</td>
+                        <td>${{ p.costo_real_kg }}</td>
+                        <td>${{ p.iva_kg }}</td>
+                        <td>${{ p.costo_iva_kg }}</td>
+                        <td>${{ p.precio_kg }}</td>
+                        <td class="{% if p.ganancia_kg > 0 %}text-success{% else %}text-danger{% endif %}">
+                            ${{ p.ganancia_kg }}
+                        </td>
+                        <td>{{ p.porcentaje }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 🚨 ALERTAS + RECOMENDACIONES -->
+<div class="row mt-4">
+
+    <div class="col-md-6">
+        <div class="card p-3 border-danger">
+            <h5>🚨 Alertas</h5>
+            <ul>
+                {% for a in alertas %}
+                    <li>{{ a }}</li>
+                {% empty %}
+                    <li>No hay alertas</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card p-3 border-success">
+            <h5>🧠 Recomendaciones</h5>
+            <ul>
+                {% for r in recomendaciones %}
+                    <li>{{ r }}</li>
+                {% empty %}
+                    <li>Todo bajo control 👍</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+<!-- JS (NO SE TOCA) -->
+<script>
+let ventas = {{ ventas_data|safe }};
+let gastos = {{ gastos_data|safe }};
+let compras = {{ compras_data|safe }};
+
+function prepararData(data) {
+    return {
+        labels: data.map(x => x.dia),
+        values: data.map(x => x.total)
+    };
+}
+
+let v = prepararData(ventas);
+
+new Chart(document.getElementById('ventasChart'), {
+    type: 'line',
+    data: {
+        labels: v.labels,
+        datasets: [{
+            label: 'Ventas',
+            data: v.values,
+            borderWidth: 2
+        }]
+    }
+});
+
+let g = prepararData(gastos);
+
+new Chart(document.getElementById('gastosChart'), {
+    type: 'bar',
+    data: {
+        labels: g.labels,
+        datasets: [{
+            label: 'Gastos',
+            data: g.values
+        }]
+    }
+});
+
+let c = prepararData(compras);
+
+new Chart(document.getElementById('comprasChart'), {
+    type: 'bar',
+    data: {
+        labels: c.labels,
+        datasets: [{
+            label: 'Compras',
+            data: c.values
+        }]
+    }
+});
+</script>
+
+<script>
+let gastosFijos = {{ gastos_fijos }};
+let gastosVariables = {{ gastos_variables }};
+
+new Chart(document.getElementById('gastosPie'), {
+    type: 'pie',
+    data: {
+        labels: ['Fijos', 'Variables'],
+        datasets: [{
+            data: [gastosFijos, gastosVariables]
+        }]
+    }
+});
+</script>
+
+<script>
+let utilidad = {{ utilidad_data|safe }};
+
+let labelsU = utilidad.map(x => x.dia);
+let dataU = utilidad.map(x => x.utilidad);
+
+new Chart(document.getElementById('utilidadChart'), {
+    type: 'line',
+    data: {
+        labels: labelsU,
+        datasets: [{
+            label: 'Utilidad',
+            data: dataU,
+            borderWidth: 2
+        }]
+    }
+});
+</script>
+
+{% endblock %}
