@@ -8,7 +8,7 @@ from django.utils.dateparse import parse_date
 import json
 from collections import defaultdict
 
-from ventas.models import Venta, DetalleVenta
+from ventas.models import Venta
 from compras.models import Compra
 from gastos.models import Gasto, TipoGasto
 from productos.models import Producto
@@ -172,82 +172,7 @@ def dashboard(request):
     # =========================================
     # RENTABILIDAD POR PRODUCTO
     # =========================================
-    detalles = DetalleVenta.objects.select_related(
-        'producto'
-    )
-
-    if fecha_inicio_dt and fecha_fin_dt:
-
-        detalles = detalles.filter(
-            venta__fecha__range=[
-                fecha_inicio_dt,
-                fecha_fin_dt
-            ]
-        )
-
-    rentabilidad_dict = defaultdict(
-        lambda: {
-            'kg': 0.0,
-            'costo_total': 0.0,
-            'venta_total': 0.0
-        }
-    )
-
-    for d in detalles:
-
-        if not d.producto:
-            continue
-
-        producto = d.producto
-
-        nombre = producto.nombre
-
-        cantidad = float(d.cantidad or 0)
-
-        precio = producto.precio_sugerido()
-
-        costo = producto.costo_con_iva()
-
-        rentabilidad_dict[nombre]['kg'] += cantidad
-
-        rentabilidad_dict[nombre]['venta_total'] += (
-            cantidad * precio
-        )
-
-        rentabilidad_dict[nombre]['costo_total'] += (
-            cantidad * costo
-        )
-
     rentabilidad_lista = []
-
-    for nombre, data in rentabilidad_dict.items():
-
-        total_venta = data['venta_total']
-
-        total_costo = data['costo_total']
-
-        utilidad_producto = (
-            total_venta
-            - total_costo
-        )
-
-        margen = 0
-
-        if total_venta > 0:
-
-            margen = (
-                utilidad_producto
-                / total_venta
-            ) * 100
-
-        rentabilidad_lista.append({
-            'producto': nombre,
-            'cantidad': round(data['kg'], 2),
-            'venta': round(total_venta, 2),
-            'costo': round(total_costo, 2),
-            'utilidad': round(utilidad_producto, 2),
-            'margen': round(margen, 2)
-        })
 
     # =========================================
     # COSTEO INTELIGENTE
