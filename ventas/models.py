@@ -18,33 +18,33 @@ TIPOS_PAGO = (
 # VENTAS
 # =========================================
 class Venta(models.Model):
-
+    
     fecha = models.DateField()
 
-    tipo_pago = models.CharField(
-        max_length=20,
-        choices=TIPOS_PAGO
-    )
+    efectivo = models.IntegerField(default=0)
+    debito = models.IntegerField(default=0)
+    transferencia = models.IntegerField(default=0)
+    credito = models.IntegerField(default=0)
 
-    total = models.DecimalField(
-        max_digits=12,
-        decimal_places=2
-    )
+    total = models.IntegerField(default=0)
 
-    observacion = models.TextField(
-        blank=True,
-        null=True
-    )
+    observacion = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Venta"
-        verbose_name_plural = "Ventas"
-        ordering = ['-fecha', '-id']
+        verbose_name = 'Venta'
+        verbose_name_plural = 'Ventas'
+        ordering = ['-fecha']
+
+    def save(self, *args, **kwargs):
+
+        self.total = (
+            self.efectivo +
+            self.debito +
+            self.transferencia +
+            self.credito
+        )
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
-
-        return (
-            f"{self.fecha} - "
-            f"{self.tipo_pago} - "
-            f"${self.total}"
-        )
+        return f"{self.fecha} - ${self.total}"

@@ -1,0 +1,19 @@
+fieldset.module aligned {
+    background: #fff;
+}
+
+input {
+    font-size: 18px !important;
+    font-weight: bold;
+    text-align: right;
+}
+
+.readonly {
+    font-size: 24px;
+    color: green;
+    font-weight: bold;
+}
+
+#result_list td {
+    font-size: 15px;
+}
