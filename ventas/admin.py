@@ -10,6 +10,10 @@ from .models import Venta
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
 
+    # =====================================
+    # TABLA ADMIN
+    # =====================================
+
     list_display = (
         'fecha',
         'efectivo_formateado',
@@ -31,6 +35,10 @@ class VentaAdmin(admin.ModelAdmin):
 
     date_hierarchy = 'fecha'
 
+    # =====================================
+    # FORMULARIO
+    # =====================================
+
     fields = (
         'fecha',
         ('efectivo', 'debito'),
@@ -39,7 +47,11 @@ class VentaAdmin(admin.ModelAdmin):
         'observacion',
     )
 
-    readonly_fields = ('total',)
+    # IMPORTANTE:
+    # quitamos readonly_fields
+    # para que JS pueda actualizar total
+    #
+    # readonly_fields = ('total',)
 
     class Media:
         js = ('admin/js/ventas.js',)
@@ -47,9 +59,9 @@ class VentaAdmin(admin.ModelAdmin):
             'all': ('admin/css/ventas.css',)
         }
 
-    # =========================
+    # =====================================
     # FORMATO CHILENO
-    # =========================
+    # =====================================
 
     def formato_clp(self, valor):
 
@@ -58,6 +70,10 @@ class VentaAdmin(admin.ModelAdmin):
         return "$ {:,}".format(
             int(valor)
         ).replace(",", ".")
+
+    # =====================================
+    # COLUMNAS FORMATEADAS
+    # =====================================
 
     def efectivo_formateado(self, obj):
         return self.formato_clp(obj.efectivo)
@@ -73,7 +89,7 @@ class VentaAdmin(admin.ModelAdmin):
 
     def total_formateado(self, obj):
         return format_html(
-            "<strong style='color:green'>{}</strong>",
+            "<strong style='color:green;font-size:15px'>{}</strong>",
             self.formato_clp(obj.total)
         )
 
@@ -83,9 +99,9 @@ class VentaAdmin(admin.ModelAdmin):
     credito_formateado.short_description = "Crédito"
     total_formateado.short_description = "TOTAL"
 
-    # =========================
-    # TOTALES
-    # =========================
+    # =====================================
+    # RESUMEN SUPERIOR
+    # =====================================
 
     def changelist_view(self, request, extra_context=None):
 
@@ -110,15 +126,30 @@ class VentaAdmin(admin.ModelAdmin):
 
             response.context_data['totales'] = {
 
-                'efectivo': self.formato_clp(totales['efectivo']),
-                'debito': self.formato_clp(totales['debito']),
-                'transferencia': self.formato_clp(totales['transferencia']),
-                'credito': self.formato_clp(totales['credito']),
-                'total': self.formato_clp(totales['total']),
+                'efectivo': self.formato_clp(
+                    totales['efectivo']
+                ),
+
+                'debito': self.formato_clp(
+                    totales['debito']
+                ),
+
+                'transferencia': self.formato_clp(
+                    totales['transferencia']
+                ),
+
+                'credito': self.formato_clp(
+                    totales['credito']
+                ),
+
+                'total': self.formato_clp(
+                    totales['total']
+                ),
 
             }
 
-        except:
-            pass
+        except Exception as e:
+
+            print(e)
 
         return response
