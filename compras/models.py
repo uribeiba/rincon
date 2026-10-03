@@ -13,6 +13,17 @@ class Proveedor(models.Model):
         max_length=150
     )
 
+    # RUT del proveedor. Se usa para identificar automáticamente
+    # al emisor cuando leemos el timbre PDF417 del SII.
+    # Se permite vacío para no romper proveedores históricos.
+    rut = models.CharField(
+        max_length=12,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name="RUT"
+    )
+
     telefono = models.CharField(
         max_length=50,
         blank=True,

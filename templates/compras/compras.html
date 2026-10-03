@@ -1,6 +1,526 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2>Compras</h2>
-<p>Aquí irán las compras</p>
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <div class="text-muted small fw-semibold text-uppercase">Gestión de compras</div>
+        <h2 class="fw-bold mb-1">🧾 Compras</h2>
+        <p class="text-muted mb-0">Ingresa facturas desde el timbre electrónico SII o continúa de forma manual.</p>
+    </div>
+
+    <button class="btn btn-success btn-lg px-4" id="btnAbrirScanner">
+        📷 Escanear factura
+    </button>
+</div>
+
+<!-- =====================================================
+     ACCIONES PRINCIPALES
+====================================================== -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <div class="card border-0 h-100 p-4 scanner-action-card" role="button" id="cardScanner">
+            <div class="icon-circle bg-success-subtle text-success">📷</div>
+            <h5 class="fw-bold mt-3">Escanear con cámara</h5>
+            <p class="text-muted mb-0">Usa la cámara del computador o del teléfono para leer el PDF417 del SII.</p>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 h-100 p-4">
+            <div class="icon-circle bg-primary-subtle text-primary">⌨️</div>
+            <h5 class="fw-bold mt-3">Lector USB</h5>
+            <p class="text-muted">Conecta un lector 2D compatible con PDF417 y pega/escanea el contenido aquí.</p>
+            <div class="input-group">
+                <input type="text" class="form-control" id="lectorUsb" placeholder="Escanea y presiona Enter">
+                <button class="btn btn-outline-primary" id="btnProcesarUsb">Procesar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 h-100 p-4">
+            <div class="icon-circle bg-warning-subtle text-warning">✍️</div>
+            <h5 class="fw-bold mt-3">Ingreso manual</h5>
+            <p class="text-muted">La opción manual seguirá disponible como respaldo cuando una factura no pueda ser leída.</p>
+            <button class="btn btn-outline-secondary" disabled>Próxima etapa</button>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================
+     SCANNER
+====================================================== -->
+<div class="card border-0 mb-4 d-none" id="scannerPanel">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="fw-bold mb-1">📷 Escanear timbre electrónico</h4>
+                <p class="text-muted mb-0">Enfoca el código PDF417 que aparece en la parte inferior de la factura.</p>
+            </div>
+            <button class="btn btn-outline-secondary" id="btnCerrarScanner">Cerrar</button>
+        </div>
+
+        <div class="row g-4 align-items-center">
+            <div class="col-lg-8">
+                <div class="scanner-frame">
+                    <video id="videoScanner" autoplay muted playsinline></video>
+                    <div class="scanner-target"></div>
+                </div>
+                <div class="text-center mt-3">
+                    <span class="badge rounded-pill text-bg-secondary" id="scannerStatus">Preparando cámara...</span>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="alert alert-info border-0">
+                    <strong>Consejos</strong>
+                    <ul class="mb-0 mt-2 ps-3">
+                        <li>Usa buena iluminación.</li>
+                        <li>Acerca el PDF417 hasta que quede enfocado.</li>
+                        <li>No es necesario fotografiar toda la factura.</li>
+                    </ul>
+                </div>
+
+                <button class="btn btn-success w-100" id="btnReiniciarScanner">
+                    🔄 Reiniciar cámara
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================
+     RESULTADO DE LA FACTURA
+====================================================== -->
+<div class="card border-0 mb-4 d-none" id="resultadoPanel">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+            <div>
+                <div class="text-muted small text-uppercase fw-semibold">Documento detectado</div>
+                <h4 class="fw-bold mb-1" id="resultadoTitulo">Factura electrónica</h4>
+                <div class="text-muted" id="resultadoEstado"></div>
+            </div>
+            <span class="badge rounded-pill text-bg-success fs-6" id="badgeLectura">PDF417 leído</span>
+        </div>
+
+        <div id="duplicateAlert" class="alert alert-danger d-none"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">RUT proveedor</label>
+                <input type="text" class="form-control" id="campoRut" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Proveedor</label>
+                <input type="text" class="form-control" id="campoProveedor">
+                <div class="form-text" id="proveedorHint"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Tipo</label>
+                <input type="text" class="form-control" id="campoTipo" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Folio</label>
+                <input type="text" class="form-control" id="campoFolio" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Fecha</label>
+                <input type="date" class="form-control" id="campoFecha">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Total</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" min="0" step="1" class="form-control" id="campoTotal">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Primer ítem del timbre</label>
+                <input type="text" class="form-control" id="campoPrimerItem" readonly>
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-semibold">Observación</label>
+                <textarea class="form-control" rows="2" id="campoObservacion" placeholder="Opcional"></textarea>
+            </div>
+        </div>
+
+        <div class="alert alert-warning border-0 mt-4 mb-0">
+            <strong>Importante:</strong> el PDF417 entrega los datos principales del DTE y el primer ítem. El detalle completo de productos lo incorporaremos después mediante XML/OCR.
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-outline-secondary" id="btnCancelarResultado">Cancelar</button>
+            <button class="btn btn-success px-4" id="btnGuardarFactura">✓ Confirmar y guardar compra</button>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================
+     HISTORIAL
+====================================================== -->
+<div class="card border-0">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold mb-1">Últimas compras</h5>
+                <p class="text-muted mb-0">Las últimas 30 compras registradas.</p>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>Documento</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for compra in compras %}
+                    <tr>
+                        <td>{{ compra.fecha|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ compra.proveedor.nombre }}</div>
+                            {% if compra.proveedor.rut %}
+                                <small class="text-muted">{{ compra.proveedor.rut }}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ compra.get_tipo_documento_display }} #{{ compra.numero_documento|default:"—" }}</td>
+                        <td class="text-end fw-semibold">$ {{ compra.total|floatformat:0 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-5">Todavía no hay compras registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .scanner-action-card {
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .scanner-action-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+
+    .icon-circle {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        font-size: 23px;
+    }
+
+    .scanner-frame {
+        position: relative;
+        width: 100%;
+        min-height: 360px;
+        overflow: hidden;
+        border-radius: 18px;
+        background: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #videoScanner {
+        width: 100%;
+        height: 420px;
+        object-fit: cover;
+    }
+
+    .scanner-target {
+        position: absolute;
+        width: 72%;
+        height: 35%;
+        border: 3px solid rgba(34, 197, 94, .95);
+        border-radius: 14px;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,.20);
+        pointer-events: none;
+    }
+
+    #resultadoPanel {
+        border-left: 5px solid #198754 !important;
+    }
+
+    @media (max-width: 767px) {
+        #videoScanner {
+            height: 300px;
+        }
+
+        .scanner-target {
+            width: 88%;
+        }
+    }
+</style>
+
+<!-- ZXing Browser incluye un lector específico para PDF417. -->
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
+
+<script>
+(() => {
+    "use strict";
+
+    const btnAbrirScanner = document.getElementById("btnAbrirScanner");
+    const cardScanner = document.getElementById("cardScanner");
+    const btnCerrarScanner = document.getElementById("btnCerrarScanner");
+    const btnReiniciarScanner = document.getElementById("btnReiniciarScanner");
+    const scannerPanel = document.getElementById("scannerPanel");
+    const resultadoPanel = document.getElementById("resultadoPanel");
+    const scannerStatus = document.getElementById("scannerStatus");
+    const video = document.getElementById("videoScanner");
+    const lectorUsb = document.getElementById("lectorUsb");
+    const btnProcesarUsb = document.getElementById("btnProcesarUsb");
+    const btnGuardarFactura = document.getElementById("btnGuardarFactura");
+    const btnCancelarResultado = document.getElementById("btnCancelarResultado");
+
+    let scannerControls = null;
+    let facturaActual = null;
+    let procesandoLectura = false;
+
+    function csrfToken() {
+        const name = "csrftoken=";
+        const cookies = document.cookie.split(";");
+        for (const cookie of cookies) {
+            const value = cookie.trim();
+            if (value.startsWith(name)) {
+                return decodeURIComponent(value.substring(name.length));
+            }
+        }
+        return "";
+    }
+
+    function mostrarScanner(mostrar = true) {
+        scannerPanel.classList.toggle("d-none", !mostrar);
+
+        if (!mostrar) {
+            detenerScanner();
+        }
+    }
+
+    function detenerScanner() {
+        if (scannerControls) {
+            try {
+                scannerControls.stop();
+            } catch (e) {
+                console.warn("No se pudo detener el scanner:", e);
+            }
+            scannerControls = null;
+        }
+
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+    }
+
+    async function iniciarScanner() {
+        mostrarScanner(true);
+        resultadoPanel.classList.add("d-none");
+        procesandoLectura = false;
+        scannerStatus.className = "badge rounded-pill text-bg-secondary";
+        scannerStatus.textContent = "Solicitando cámara...";
+
+        if (!window.ZXingBrowser || !window.ZXingBrowser.BrowserPDF417Reader) {
+            scannerStatus.className = "badge rounded-pill text-bg-danger";
+            scannerStatus.textContent = "No se pudo cargar el lector PDF417.";
+            return;
+        }
+
+        try {
+            const Reader = window.ZXingBrowser.BrowserPDF417Reader;
+            const reader = new Reader();
+            const devices = await window.ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+
+            if (!devices.length) {
+                throw new Error("No se encontró ninguna cámara disponible.");
+            }
+
+            // Preferimos la cámara trasera cuando el navegador informa su etiqueta.
+            const backCamera = devices.find(device => /back|rear|trasera|environment/i.test(device.label));
+            const deviceId = (backCamera || devices[0]).deviceId;
+
+            scannerStatus.className = "badge rounded-pill text-bg-success";
+            scannerStatus.textContent = "Cámara activa · esperando PDF417...";
+
+            scannerControls = await reader.decodeFromVideoDevice(
+                deviceId,
+                video,
+                async (result, error) => {
+                    if (!result || procesandoLectura) {
+                        return;
+                    }
+
+                    procesandoLectura = true;
+                    detenerScanner();
+                    scannerStatus.className = "badge rounded-pill text-bg-success";
+                    scannerStatus.textContent = "Código detectado ✓";
+
+                    await procesarTED(result.getText());
+                }
+            );
+        } catch (error) {
+            console.error(error);
+            scannerStatus.className = "badge rounded-pill text-bg-danger";
+            scannerStatus.textContent = error.message || "No se pudo iniciar la cámara.";
+        }
+    }
+
+    async function procesarTED(ted) {
+        try {
+            const response = await fetch("{% url 'procesar_pdf417' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken(),
+                },
+                body: JSON.stringify({ ted }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                throw new Error(data.error || "No se pudo interpretar la factura.");
+            }
+
+            mostrarResultado(data.data);
+        } catch (error) {
+            alert(error.message);
+            procesandoLectura = false;
+            iniciarScanner();
+        }
+    }
+
+    function mostrarResultado(data) {
+        facturaActual = data;
+
+        document.getElementById("campoRut").value = data.rut_emisor || "";
+        document.getElementById("campoProveedor").value = data.proveedor_nombre || "";
+        document.getElementById("campoTipo").value = data.tipo_documento_label || "";
+        document.getElementById("campoFolio").value = data.folio || "";
+        document.getElementById("campoFecha").value = data.fecha || "";
+        document.getElementById("campoTotal").value = data.total || "0";
+        document.getElementById("campoPrimerItem").value = data.primer_item || "No informado";
+
+        const proveedorHint = document.getElementById("proveedorHint");
+        if (data.proveedor_id) {
+            proveedorHint.textContent = "✓ Proveedor encontrado por RUT.";
+            proveedorHint.className = "form-text text-success";
+        } else {
+            proveedorHint.textContent = "Proveedor nuevo: puedes corregir el nombre antes de guardar.";
+            proveedorHint.className = "form-text text-warning";
+        }
+
+        const duplicateAlert = document.getElementById("duplicateAlert");
+        if (data.duplicada) {
+            duplicateAlert.textContent = `⚠ Esta factura ya está registrada. Compra #${data.compra_existente_id}.`;
+            duplicateAlert.classList.remove("d-none");
+            btnGuardarFactura.disabled = true;
+        } else {
+            duplicateAlert.classList.add("d-none");
+            btnGuardarFactura.disabled = false;
+        }
+
+        document.getElementById("resultadoTitulo").textContent = data.tipo_documento_label || "Documento electrónico";
+        document.getElementById("resultadoEstado").textContent = `RUT ${data.rut_emisor} · Folio ${data.folio}`;
+
+        resultadoPanel.classList.remove("d-none");
+        resultadoPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function guardarFactura() {
+        if (!facturaActual) {
+            return;
+        }
+
+        const proveedorNombre = document.getElementById("campoProveedor").value.trim();
+
+        if (!proveedorNombre) {
+            alert("Ingresa el nombre del proveedor.");
+            return;
+        }
+
+        const payload = {
+            rut_emisor: facturaActual.rut_emisor,
+            proveedor_id: facturaActual.proveedor_id,
+            proveedor_nombre: proveedorNombre,
+            fecha: document.getElementById("campoFecha").value,
+            tipo_documento: facturaActual.tipo_documento,
+            numero_documento: document.getElementById("campoFolio").value,
+            total: document.getElementById("campoTotal").value,
+            observacion: document.getElementById("campoObservacion").value.trim(),
+        };
+
+        btnGuardarFactura.disabled = true;
+        btnGuardarFactura.textContent = "Guardando...";
+
+        try {
+            const response = await fetch("{% url 'guardar_compra_factura' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken(),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                throw new Error(data.error || "No se pudo guardar la compra.");
+            }
+
+            alert(`✓ ${data.mensaje}`);
+            window.location.reload();
+        } catch (error) {
+            alert(error.message);
+            btnGuardarFactura.disabled = false;
+            btnGuardarFactura.textContent = "✓ Confirmar y guardar compra";
+        }
+    }
+
+    btnAbrirScanner.addEventListener("click", iniciarScanner);
+    cardScanner.addEventListener("click", iniciarScanner);
+    btnCerrarScanner.addEventListener("click", () => mostrarScanner(false));
+    btnReiniciarScanner.addEventListener("click", iniciarScanner);
+    btnGuardarFactura.addEventListener("click", guardarFactura);
+
+    btnCancelarResultado.addEventListener("click", () => {
+        facturaActual = null;
+        resultadoPanel.classList.add("d-none");
+        procesandoLectura = false;
+    });
+
+    btnProcesarUsb.addEventListener("click", () => {
+        const value = lectorUsb.value.trim();
+        if (!value) {
+            alert("Escanea primero el código PDF417 con el lector USB.");
+            lectorUsb.focus();
+            return;
+        }
+        procesandoLectura = true;
+        procesarTED(value);
+    });
+
+    lectorUsb.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            btnProcesarUsb.click();
+        }
+    });
+})();
+</script>
 {% endblock %}

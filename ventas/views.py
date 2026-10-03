@@ -10,3 +10,4 @@ def crear_venta(request):
         return redirect('/')
 
     return render(request, 'ventas/crear_venta.html', {'form': form})
+

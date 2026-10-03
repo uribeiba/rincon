@@ -1,6 +1,13 @@
 from django.urls import path
-from .views import compras_view
+
+from .views import (
+    compras_view,
+    procesar_pdf417,
+    guardar_compra_factura,
+)
 
 urlpatterns = [
     path('', compras_view, name='compras'),
+    path('api/procesar-pdf417/', procesar_pdf417, name='procesar_pdf417'),
+    path('api/guardar-factura/', guardar_compra_factura, name='guardar_compra_factura'),
 ]
