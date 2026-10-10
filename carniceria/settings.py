@@ -14,9 +14,20 @@ SECRET_KEY = 'django-insecure-8-$1c9fr6daug*61^sw9kl$=6_kr(8(ddy@loqh!#u^=l3%k$x
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'rincon.losvilos.cl',
+    'www.rincon.losvilos.cl',
+    '44.223.23.6',
+    'localhost',
+    '127.0.0.1',
+]
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://rincon.losvilos.cl',
+    'https://www.rincon.losvilos.cl',
+]
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Application definition
 
 INSTALLED_APPS = [

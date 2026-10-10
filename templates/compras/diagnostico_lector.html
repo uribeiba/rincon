@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>🔍 Diagnóstico del lector</h2>
+    <p class="text-muted">
+        Escanea una factura con el lector. Aquí veremos exactamente qué está enviando.
+    </p>
+
+    <div class="card p-4 mb-4">
+        <label class="form-label fw-bold">1) Campo de prueba (haz clic aquí y escanea):</label>
+        <input type="text" id="inputTest" class="form-control form-control-lg"
+               placeholder="Haz clic aquí y escanea el PDF417..."
+               autocomplete="off" autofocus>
+
+        <div class="mt-3">
+            <strong>Largo del texto recibido:</strong>
+            <span id="largo" class="badge bg-secondary">0</span>
+        </div>
+        <div class="mt-2">
+            <strong>¿Contiene Enter al final?</strong>
+            <span id="tieneEnter" class="badge bg-secondary">No detectado</span>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4">
+        <label class="form-label fw-bold">2) Contenido crudo (primeros 2000 caracteres):</label>
+        <textarea id="crudo" class="form-control" rows="10" readonly
+                  style="font-family: monospace; font-size: 12px;"></textarea>
+    </div>
+
+    <div class="card p-4 mb-4">
+        <label class="form-label fw-bold">3) ¿Contiene un TED del SII?</label>
+        <div id="resultadoTed" class="alert alert-secondary mb-0">
+            Esperando escaneo...
+        </div>
+    </div>
+
+    <div class="card p-4">
+        <label class="form-label fw-bold">4) Botón de prueba contra el backend:</label>
+        <button id="btnProbarBackend" class="btn btn-primary" disabled>
+            Probar parse_ted() en el servidor
+        </button>
+        <pre id="respuestaBackend" class="mt-3 mb-0 p-3 bg-light border rounded"
+             style="font-size: 12px; max-height: 300px; overflow: auto;"></pre>
+    </div>
+</div>
+
+<script>
+(() => {
+    const input = document.getElementById('inputTest');
+    const crudo = document.getElementById('crudo');
+    const largo = document.getElementById('largo');
+    const tieneEnter = document.getElementById('tieneEnter');
+    const resultadoTed = document.getElementById('resultadoTed');
+    const btnProbar = document.getElementById('btnProbarBackend');
+    const respuesta = document.getElementById('respuestaBackend');
+
+    let ultimoTexto = '';
+    let enterDetectado = false;
+
+    function csrfToken() {
+        const name = "csrftoken=";
+        for (const c of document.cookie.split(";")) {
+            const v = c.trim();
+            if (v.startsWith(name)) return decodeURIComponent(v.substring(name.length));
+        }
+        return "";
+    }
+
+    function actualizar(texto, conEnter) {
+        ultimoTexto = texto;
+        crudo.value = texto.substring(0, 2000);
+        largo.textContent = texto.length;
+
+        if (conEnter) {
+            enterDetectado = true;
+            tieneEnter.textContent = "Sí";
+            tieneEnter.className = "badge bg-success";
+        } else {
+            tieneEnter.textContent = "No detectado";
+            tieneEnter.className = "badge bg-warning text-dark";
+        }
+
+        // Detectar TED
+        if (texto.includes('<TED') && texto.includes('</TED>')) {
+            resultadoTed.className = "alert alert-success mb-0";
+            resultadoTed.innerHTML = "✅ Contiene un TED del SII. Listo para parsear.";
+            btnProbar.disabled = false;
+        } else if (texto.length > 0) {
+            resultadoTed.className = "alert alert-danger mb-0";
+            resultadoTed.innerHTML = "❌ <strong>No contiene TED.</strong> " +
+                "El lector no está leyendo el PDF417 del SII, o está leyendo otro código.";
+            btnProbar.disabled = true;
+        }
+    }
+
+    // Capturamos la entrada del lector
+    input.addEventListener('input', () => {
+        actualizar(input.value, enterDetectado);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            enterDetectado = true;
+            actualizar(input.value, true);
+        }
+    });
+
+    // Botón para probar contra el backend
+    btnProbar.addEventListener('click', async () => {
+        respuesta.textContent = 'Enviando...';
+
+        try {
+            const r = await fetch("{% url 'procesar_pdf417' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken(),
+                },
+                body: JSON.stringify({ ted: ultimoTexto }),
+            });
+            const data = await r.json();
+            respuesta.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+            respuesta.textContent = 'Error: ' + err.message;
+        }
+    });
+})();
+</script>
+{% endblock %}

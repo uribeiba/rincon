@@ -33,9 +33,19 @@
             <h5 class="fw-bold mt-3">Lector USB</h5>
             <p class="text-muted">Conecta un lector 2D compatible con PDF417 y pega/escanea el contenido aquí.</p>
             <div class="input-group">
-                <input type="text" class="form-control" id="lectorUsb" placeholder="Escanea y presiona Enter">
+                <input type="text"
+                       class="form-control"
+                       id="lectorUsb"
+                       placeholder="Haz clic aquí y escanea el PDF417 del SII"
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       spellcheck="false">
                 <button class="btn btn-outline-primary" id="btnProcesarUsb">Procesar</button>
             </div>
+            <small class="text-muted d-block mt-2">
+                💡 Mantén el cursor en este campo. El lector escribe automáticamente al escanear.
+            </small>
         </div>
     </div>
 
@@ -254,6 +264,21 @@
 
     #resultadoPanel {
         border-left: 5px solid #198754 !important;
+    }
+
+    /* 👇 NUEVO: feedback visual del input del lector USB */
+    #lectorUsb {
+        transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    #lectorUsb.lector-activo {
+        border-color: #198754 !important;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.15);
+    }
+
+    #lectorUsb.lector-inactivo {
+        border-color: #ffc107 !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.15);
     }
 
     @media (max-width: 767px) {
@@ -520,6 +545,43 @@
             event.preventDefault();
             btnProcesarUsb.click();
         }
+    });
+
+    // ==================== AUTO-FOCO EN EL LECTOR ====================
+    // Al cargar la página, ponemos el foco en el input del lector USB
+    window.addEventListener("load", () => {
+        if (lectorUsb) {
+            lectorUsb.focus();
+            lectorUsb.classList.add("lector-activo");
+        }
+    });
+
+    // Feedback visual: verde si tiene foco, amarillo si no
+    lectorUsb.addEventListener("focus", () => {
+        lectorUsb.classList.remove("lector-inactivo");
+        lectorUsb.classList.add("lector-activo");
+    });
+
+    lectorUsb.addEventListener("blur", () => {
+        lectorUsb.classList.remove("lector-activo");
+        lectorUsb.classList.add("lector-inactivo");
+    });
+
+    // Si el usuario hace clic en cualquier parte del documento, avisamos
+    // con un borde amarillo si el lector USB no tiene el foco.
+    document.addEventListener("click", (e) => {
+        if (!lectorUsb) return;
+        if (e.target === lectorUsb) return;
+        if (lectorUsb.contains(e.target)) return;
+
+        // Si el clic fue en el botón "Procesar", no quitamos el foco
+        if (e.target === btnProcesarUsb || btnProcesarUsb.contains(e.target)) return;
+
+        // Si el clic fue dentro del panel del escáner de cámara, no molestamos
+        if (scannerPanel && scannerPanel.contains(e.target)) return;
+
+        lectorUsb.classList.remove("lector-activo");
+        lectorUsb.classList.add("lector-inactivo");
     });
 })();
 </script>

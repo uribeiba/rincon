@@ -294,3 +294,11 @@ def guardar_compra_factura(request):
             {"ok": False, "error": f"No se pudo guardar la compra: {exc}"},
             status=500,
         )
+
+# =========================================================
+# DIAGNÓSTICO: capturar lo que envía el lector
+# =========================================================
+@login_required
+def diagnostico_lector(request):
+    """Página simple para ver el texto crudo del lector."""
+    return render(request, "compras/diagnostico_lector.html")
