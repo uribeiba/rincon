@@ -1,4 +1,5 @@
 import json
+import re
 import xml.etree.ElementTree as ET
 from decimal import Decimal, InvalidOperation
 
@@ -47,9 +48,51 @@ def _xml_value(node, path):
     return found.text.strip()
 
 
+# =========================================================
+# PARSER DEL TED (tolerante a caracteres corruptos del lector)
+# =========================================================
+
+def _extract_ted_field(raw, tag):
+    """
+    Extrae un campo del TED crudo.
+
+    Acepta tanto XML normal:
+        <TAG>valor</TAG>
+    como el formato corrupto por layout de teclado:
+        TAG:valor;TAG:
+        TAG;valor:TAG;
+    """
+    # Patrón 1: TAG[:;](valor)[:;]TAG   → tag de apertura y cierre
+    pattern_close = rf'{tag}[:;]([^:;]+)[:;]{tag}'
+    match = re.search(pattern_close, raw, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+
+    # Patrón 2: TAG[:;](valor)  → solo tag de apertura
+    pattern_open = rf'{tag}[:;]([^:;]+)'
+    match = re.search(pattern_open, raw, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+
+    return ""
+
+
+def _normalize_date(value):
+    """Normaliza la fecha del TED, tolerando separadores corruptos."""
+    if not value:
+        return ""
+    # El lector a veces envía ' o / en lugar de -
+    return value.replace("'", "-").replace("/", "-").strip()
+
+
 def parse_ted(raw_ted):
     """
     Interpreta el XML contenido dentro del PDF417 del timbre electrónico SII.
+
+    Soporta dos escenarios:
+      1. XML bien formado (cuando el lector está configurado correctamente).
+      2. Texto con caracteres corruptos por layout de teclado
+         (ej: '<' → ';', '>' → ':', '/' → '-', '-' → "'").
 
     El TED del SII contiene, entre otros:
       RE  = RUT emisor
@@ -66,12 +109,35 @@ def parse_ted(raw_ted):
 
     raw = str(raw_ted).strip()
 
-    # Algunos lectores agregan caracteres antes/después del TED.
+    # Limpiar caracteres de control no imprimibles
+    raw = ''.join(
+        ch for ch in raw
+        if ch in '\n\r\t' or ord(ch) >= 32
+    )
+
+    # ---------------------------------------------------------
+    # Intento 1: XML estándar (lector bien configurado)
+    # ---------------------------------------------------------
+    if '<TED' in raw and '</TED>' in raw:
+        try:
+            return _parse_ted_xml(raw)
+        except (ValueError, ET.ParseError):
+            # Si el XML está mal formado, caemos al parser tolerante
+            pass
+
+    # ---------------------------------------------------------
+    # Intento 2: Parser tolerante (caracteres corruptos)
+    # ---------------------------------------------------------
+    return _parse_ted_tolerant(raw)
+
+
+def _parse_ted_xml(raw):
+    """Parser estricto para TED bien formado (XML válido)."""
     start = raw.find("<TED")
     end = raw.rfind("</TED>")
 
     if start == -1 or end == -1:
-        raise ValueError("El código leído no contiene un TED del SII reconocible.")
+        raise ValueError("El código no contiene un TED del SII.")
 
     xml_text = raw[start:end + len("</TED>")]
     xml_text = xml_text.replace("\x00", "")
@@ -79,11 +145,11 @@ def parse_ted(raw_ted):
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as exc:
-        raise ValueError("El contenido PDF417 fue leído, pero el TED no tiene un XML válido.") from exc
+        raise ValueError("El TED no tiene un XML válido.") from exc
 
     dd = root.find("DD")
     if dd is None:
-        raise ValueError("El TED no contiene el bloque DD esperado por el SII.")
+        raise ValueError("El TED no contiene el bloque DD esperado.")
 
     rut_emisor = _clean_rut(_xml_value(dd, "RE"))
     tipo_dte = _xml_value(dd, "TD")
@@ -94,8 +160,67 @@ def parse_ted(raw_ted):
     total = _money(_xml_value(dd, "MNT"))
     primer_item = _xml_value(dd, "IT1")
 
+    return _build_ted_result(
+        rut_emisor=rut_emisor,
+        tipo_dte=tipo_dte,
+        folio=folio,
+        fecha=fecha,
+        rut_receptor=rut_receptor,
+        receptor=receptor,
+        total=total,
+        primer_item=primer_item,
+        raw=raw,
+    )
+
+
+def _parse_ted_tolerant(raw):
+    """
+    Parser tolerante: extrae los campos con regex sin pretender
+    reconstruir el XML. Funciona cuando el lector envía caracteres
+    corruptos por layout de teclado.
+    """
+    rut_emisor = _clean_rut(_extract_ted_field(raw, "RE"))
+    tipo_dte = _extract_ted_field(raw, "TD")
+    folio = _extract_ted_field(raw, "F")
+    fecha = _normalize_date(_extract_ted_field(raw, "FE"))
+    rut_receptor = _clean_rut(_extract_ted_field(raw, "RR"))
+    receptor = _extract_ted_field(raw, "RSR")
+    total_str = _extract_ted_field(raw, "MNT")
+    primer_item = _extract_ted_field(raw, "IT1")
+
+    total = _money(total_str)
+
+    return _build_ted_result(
+        rut_emisor=rut_emisor,
+        tipo_dte=tipo_dte,
+        folio=folio,
+        fecha=fecha,
+        rut_receptor=rut_receptor,
+        receptor=receptor,
+        total=total,
+        primer_item=primer_item,
+        raw=raw,
+    )
+
+
+def _build_ted_result(
+    rut_emisor,
+    tipo_dte,
+    folio,
+    fecha,
+    rut_receptor,
+    receptor,
+    total,
+    primer_item,
+    raw,
+):
+    """Construye el diccionario de resultado y hace las validaciones finales."""
     if not rut_emisor or not tipo_dte or not folio or not fecha:
-        raise ValueError("Faltan datos principales del DTE dentro del PDF417.")
+        raise ValueError(
+            f"Faltan datos principales del DTE. "
+            f"RUT emisor: '{rut_emisor}', tipo: '{tipo_dte}', "
+            f"folio: '{folio}', fecha: '{fecha}'."
+        )
 
     fecha_valida = parse_date(fecha)
     if not fecha_valida:
