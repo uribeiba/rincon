@@ -33,11 +33,11 @@
             <h5 class="fw-bold mt-3">Lector USB</h5>
             <p class="text-muted">Conecta un lector 2D compatible con PDF417 y pega/escanea el contenido aquí.</p>
             <div class="input-group">
-                <input type="text"
-                       class="form-control"
+                <input type="password"
+                       class="form-control lector-usb-oculto"
                        id="lectorUsb"
                        placeholder="Haz clic aquí y escanea el PDF417 del SII"
-                       autocomplete="off"
+                       autocomplete="new-password"
                        autocorrect="off"
                        autocapitalize="off"
                        spellcheck="false">
@@ -261,6 +261,23 @@
         box-shadow: 0 0 0 9999px rgba(0,0,0,.20);
         pointer-events: none;
     }
+
+        /* Lector USB: input "invisible" para evitar ver el texto del TED */
+    .lector-usb-oculto {
+        letter-spacing: 3px;       /* separa un poco los puntos */
+        font-family: monospace;
+    }
+
+    /* Quita el iconito de "ojo" que algunos navegadores agregan a password */
+    .lector-usb-oculto::-ms-reveal,
+    .lector-usb-oculto::-ms-clear {
+        display: none;
+    }
+    .lector-usb-oculto::-webkit-credentials-auto-fill-button {
+        display: none !important;
+    }
+
+
 
     #resultadoPanel {
         border-left: 5px solid #198754 !important;
